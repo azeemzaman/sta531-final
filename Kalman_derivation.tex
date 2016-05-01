@@ -1,0 +1,159 @@
+\documentclass[11pt]{amsart}
+\usepackage{geometry}                % See geometry.pdf to learn the layout options. There are lots.
+\geometry{letterpaper}                   % ... or a4paper or a5paper or ... 
+%\geometry{landscape}                % Activate for for rotated page geometry
+%\usepackage[parfill]{parskip}    % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{epstopdf}
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+\title{New equations for Kalman Filter}
+\author{Azeem Zaman}
+%\date{}                                           % Activate to display a given date or no date
+
+\begin{document}
+\maketitle
+\section{Kalman Filter}
+We have measurments
+\begin{align*}
+x_{j} = \begin{bmatrix} \hat{a}_{j}^{p} \\
+ \hat{a}_{j}^{m} \\ 
+ r_{j} 
+\end{bmatrix}
+\end{align*}
+where $\hat{a}_{j}^{p}$ is the predicted acceleration derived from the thrust data, which we treat as a measurement, $\hat{a}_{j}^{m}$ is a noisy measurement of acceleration, and $r_{j}$ is a noisy measurement of altitude.  Let $h$ denote the time interval $\Delta t$.  We use
+\begin{align*}
+F = \begin{bmatrix}
+1 & 0 & 0 \\
+h & 1 & 0 \\
+\frac{h^{2}}{2} & h & 1
+\end{bmatrix}.
+\end{align*}
+The new $H$ matrix will be
+\begin{align*}
+H &= \begin{bmatrix}
+\beta & 0 & 0 \\
+1 & 0 & 0 \\
+0 & 0 & 1
+\end{bmatrix}
+\end{align*}
+where $\beta$ is a parameter we will have to tune.  If $\beta = 1$, we are saying that our prior predictions for acceleration are unbiased.  This might not be a case.  For example, if our predicted acceleration is always too large (because we ignore air resistance, for example), we could take $\beta < 1$.  The predicted acceleration is
+\begin{align*}
+\hat{a}_{j}^{p} &= \frac{T(j)}{m(j)} - g
+\end{align*}
+where $T(j)$ is the thrust (force in Newtons) at time $j$ and $m(j)$ is the mass at time $j$, both of which are assumed to be known in advance.  Here $g$ is the acceleration due to gravity.  Now we must determine the mean of the distribution for $z_{j+1}$ given $z_{j}$.  We have
+\begin{align*}
+a_{j} &= \frac{T(j)}{m(j)} - g \\
+a_{j+1} &= \frac{T(j+1)}{m(j+1)} - g
+\end{align*}
+which means
+\begin{align*}
+a_{j+1} - \frac{T(j+1)}{m(j+1)} &= a_{j} - \frac{T(j)}{m(j)} \\
+a_{j+1} &= a_{j} + \frac{T(j+1)}{m(j+1)} - \frac{T(j)}{m(j)}.
+\end{align*}  
+Therefore we will have
+\begin{align*}
+p(z_{j+1}|z_{j}) &= N\left(z_{j+1}| Fz_{j} + \tau(j), Q\right)
+\end{align*}
+with 
+\begin{align*}
+\tau(j) &= \begin{bmatrix}
+\frac{T(j+1)}{m(j+1)} - \frac{T(j)}{m(j)} \\
+0 \\
+0
+\end{bmatrix}.
+\end{align*}
+The equations that define the HMM are
+\begin{align*}
+p(z_{1}) &= N(z_{1} | \mu_{0}, V_{0}) \\
+p(z_{j+1}|z_{j}) &= N\left(z_{j+1}| Fz_{j} + \tau(j), Q\right) \\
+p(x_{j} | z_{j}) &= N(x_{j} | Hz_{j}, R).
+\end{align*}
+
+The first iteration is
+\begin{align*}
+p(z_{1}|x_{1}) &= N(z_{1}|\mu_{1}, V_{1})
+\end{align*}
+with
+\begin{align*}
+\mu_{1} &= \mu_{0} + K_{1}(x_{1} - H\mu_{0}) \\
+V_{1} &= (I - K_{1}H)V_{0} \\
+K_{1} &= V_{0}H^T(HV_{0}H^{T} + R)^{-1}.
+\end{align*}
+The general recursion is
+\begin{align*}
+p(z_{j}| x_{1:j}) \underset{z_{j}}{\propto} p(x_{1:j},z_{j}) &= \int p(x_{1:j},z_{j-1},z_{j}) \, dz_{j-1} \\
+&= \int p(x_{1:j-1},z_{j-1})p(z_{j}|z_{j-1})p(x_{j}|z_{j})\,dz_{j-1} \\
+&\underset{z_{j}}{\propto} \int N(z_{j-1}|\mu_{j-1}, V_{j-1})N(z_{j}|Fz_{j-1} + \tau(j), Q)N(z_{j-1}|\mu_{j-1}, V_{j-1})\,dz_{j-1} \\
+&= N(x_{j}|Hz_{j}, R) \int N(z_{j}| Fz_{j-1} + \tau(j), Q)N(z_{j-1}|\mu_{j-1}, V_{j-1})\,dz_{j-1} \\
+&= N(x_{j}|Hz_{j},R)N(z_{j}|F\mu_{j}+\tau(j), FV_{j-1}F^{T}+Q) \\
+&\underset{z_{j}}{\propto} N(z_{j}| \mu_{j}, V_{j})
+\end{align*}
+where
+\begin{align*}
+\mu_{j} &= F\mu_{j-1} + \tau(j) + K_{j}(x_{j} - H(F\mu_{j-1}+\tau(j))), \\
+K_{j} &= P_{j-1}H^{T}(HP_{j-1}H^{T} + R)^{-1}, \\
+V_{j} &= (I - K_{j}H)P_{j-1}, \\
+P_{j-1} &= FV_{j-1}F^{T} + Q
+\end{align*}
+
+\subsection{Kalman filter algorithm}
+Inputs:  Observed data $x_{1}, \ldots, x_{n}$ and model parameters $\mu_{0}, V_{0}, F, Q, H, R,$ and $\tau$.
+\begin{enumerate}
+\item{Initialize
+\begin{align*}
+\mu_{1} &= \mu_{0} + K_{1}(x_{1} - H\mu_{0}) \\
+V_{1} &= (I - K_{1}H)V_{0} \\
+K_{1} &= V_{0}H^T(HV_{0}H^{T} + R)^{-1}.
+\end{align*}}
+\item{For $j = 2,\ldots,n$:
+\begin{align*}
+\mu_{j} &= F\mu_{j-1} + \tau(j) + K_{j}(x_{j} - H(F\mu_{j-1}+\tau(j))), \\
+K_{j} &= P_{j-1}H^{T}(HP_{j-1}H^{T} + R)^{-1}, \\
+V_{j} &= (I - K_{j}H)P_{j-1}, \\
+P_{j-1} &= FV_{j-1}F^{T} + Q.
+\end{align*}}
+\end{enumerate}
+\section{Rauch-Tung-Striebel smoother (backward algorithm)}
+The recursion is the function $p(z_{j}|x_{1:n})$ for $j = n, n-1, \ldots, 1$.  The first step, $j=n$, is $p(z_{n}|x_{1:n})$, which happens to be the final step of the Kalman filter.  We know $p(z_{n}|x_{1:n}) = N(z_{n}| \hat{\mu}_{n}, \hat{V}_{n})$ with $\hat{\mu}_{n} = \mu_{n}$ and $\hat{V}_{n} = V_{n}$ (where these values come from the forward direction of the Kalman filter).  
+
+At the general step, we want to derive $p(z_{j}|x_{1:n})$ where we know, as a recursion, that $p(z_{j+1}|x_{1:n}) = N(z_{j+1}|\hat{\mu}_{j+1}, \hat{V}_{j+1})$.  We have
+\begin{align*}
+p(z_j|x_{1:n}) &= \int p(z_j, z_{j+1}| x_{1:n}) \, dz_{j+1} \\
+&= \int p(z_j | z_{j+1}, x_{1:n})p(z_{j+1}|x_{1:n}) \, dz_{j+1}. \\
+\end{align*}
+We know $p(z_{j+1}|x_{1:n}) = N(z_{j+1}|\hat{\mu}_{j+1}, \hat{V}_{j+1})$ and we find
+\begin{align*}
+p(z_j | z_{j+1}, x_{1:n}) &\underset{z_j}{\propto} p(z_j, z_{j+1}, x_{1:n}) \\
+&= p(z_j, x_{1:j})p(z_{j+1}|z_j)p(x_{j+1:n}|z_{j+1}) \\
+&\underset{z_j}{\propto} p(z_{j+1}|z_j)p(z_j|x_{1:j}) \\
+&= N(z_{j+1}|Fz_j + \tau(j+1),Q)N(z_j|\mu_j, V_j) \\
+&\underset{z_j}{\propto} N(z_j | \mu_j + K(z_{j+1} - (F\mu_j + \tau(j+1))), (I - KF)V_j),
+\end{align*}
+with $K = V_jF^T(FV_jF^T + Q)^{-1} = V_jF^TP_j^{-1}$, where $P_j$ is defined as before.  Using this form we find
+\begin{align*}
+p(z_j | x_{1:n}) &= \int N(z_j | \mu_j + K(z_{j+1} - (F\mu_j + \tau(j+1))), (I - KF)V_j)N(z_{j+1}|\hat{\mu}_{j+1}, \hat{V}_{j+1}) \\
+&= \int N(z_j | Kz_{j+1} - K(F\mu_j + \tau(j+1)) + \mu_j, (I - KF)V_j)N(z_{j+1}|\hat{\mu}_{j+1}, \hat{V}_{j+1}) \\
+&= N(z_j | K\hat{\mu}_{j+1} - K(F\mu_j + \tau(j+1)) + \mu_j, K\hat{V}_{j+1}K^T + (I - KF)V_j) \\
+&= N(z_j | \mu_j + K(\hat{\mu}_{j+1} - F\mu_j - \tau(j+1)), V_j + K(\hat{V}_{j+1} - P_j)K^T).
+\end{align*}
+If we define $C_j = V_jF_TP_j^{-1}$ then the mean and variance are
+\begin{align*}
+\hat{\mu}_j &= \mu_j + C_j(\hat{\mu}_{j+1} - F\mu_j - \tau(j+1)) \\
+\hat{V}_j &= V_j + C_j(\hat{V}_{j+1} - P_j)C_j^T.
+\end{align*}
+
+
+\subsection{RTS smoother algorithm}
+Inputs:  $\mu_j, V_j,$ and $P_j$ for each $j= 1,\ldots,n$ computed by the Kalman filter algorithm.  
+\begin{enumerate}
+\item{Initialize: $\hat{\mu}_n = \mu_n$ and $\hat{V}_n = V_n$.}
+\item{For $j = n-1,\ldots, 1:$
+\begin{align*}
+C_j &= V_jF^TP_j^{-1} \\
+\hat{\mu}_j &= \mu_j + C_j(\hat{\mu}_{j+1} - F\mu_j - \tau(j+1)) \\
+\hat{V}_j &= V_j + C_j(\hat{V}_{j+1} - P_j)C_j^T.
+\end{align*}}
+\end{enumerate}
+\end{document}  
