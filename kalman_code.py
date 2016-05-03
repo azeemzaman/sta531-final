@@ -76,7 +76,7 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R):
     gammas = [None] * N
     # compute initial values
     Ks[0] = V_0.dot(H.T.dot(np.linalg.inv(H.dot(V_0.dot(H.T)) + R)))
-    mus[0] = mu_0 + Ks[0].dot((xs[0] - H.dot(mu_0)).reshape(DIM,1))
+    mus[0] = mu_0 + Ks[0].dot((xs[0] - H.dot(mu_0)))
     Vs[0] = (np.eye(size) - Ks[0].dot(H)).dot(V_0)
     Ps[0] = F.dot(Vs[0].dot(F.T)) + Q
     gammas[0] = np.array([predicted_accel[1]-predicted_accel[0],0,0])
