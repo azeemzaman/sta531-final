@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
 import scipy.constants as Constants
+import csv
+import collections
 #%matplotlib inline
 
 #load data
@@ -13,6 +15,7 @@ FILE_URL = 'flight_data.csv'
 ACCELERATION = Constants.g
 NOISE_SD = 1
 flight_data = readCSV('flight_data.csv',delimiter=',')
+measured_data = readCSV('measured_data.csv',delimiter=',')
 
 #Predict acceleration
 def calcAcceleration(thrust,mass):
@@ -47,6 +50,8 @@ for i in range(0,len(flight_data)):
 
 xs = np.asarray(xs)
 
+
+
 #@jit
 def filter_smoother(xs, mu_0, V_0, F, Q, H, R):
     """
@@ -76,7 +81,7 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R):
     gammas = [None] * N
     # compute initial values
     Ks[0] = V_0.dot(H.T.dot(np.linalg.inv(H.dot(V_0.dot(H.T)) + R)))
-    mus[0] = mu_0 + Ks[0].dot((xs[0] - H.dot(mu_0)).reshape(DIM,1))
+    mus[0] = mu_0 + Ks[0].dot((xs[0] - H.dot(mu_0)))
     Vs[0] = (np.eye(size) - Ks[0].dot(H)).dot(V_0)
     Ps[0] = F.dot(Vs[0].dot(F.T)) + Q
     gammas[0] = np.array([predicted_accel[1]-predicted_accel[0],0,0])
@@ -86,10 +91,10 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R):
     # use recursions to calculate rest of values
     for j in range(1,N):
         Ks[j] = Ps[j-1].dot(H.T.dot(np.linalg.inv(H.dot(Ps[j-1].dot(H.T)) + R)))
-        mus[j] = F.dot(mus[j-1]) + Ks[j].dot(xs[j] - H.dot(F.dot(mus[j-1])+gammas[j]))
+        mus[j] = F.dot(mus[j-1]) + gammas[j] + Ks[j].dot(xs[j] - H.dot(F.dot(mus[j-1])+gammas[j]))
         Vs[j] = (np.eye(size) - Ks[j].dot(H)).dot(Ps[j-1])
         Ps[j] = F.dot(Vs[j].dot(F.T)) + Q
-        
+
     # smoother
     # create empty vectors to hold results
     C = [None] * N
@@ -106,4 +111,10 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R):
     return mus, Vs, mu_hats, V_hats
 
 
-    
+
+result = filter_smoother(xs, mu_0, V_0, F, Q, H, R)
+
+meanPred = np.asarray(result[2])
+
+np.savetxt("out.csv", meanPred, '%5.4f',delimiter=",")
+ 
