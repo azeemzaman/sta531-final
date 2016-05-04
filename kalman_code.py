@@ -36,10 +36,10 @@ measured_alt = addNoise(flight_data[:,1],NOISE_SD)
 # set initial values
 dt = 0.01
 sigma_a = 2
-sigma_b = 2
-sigma_p = 75
+sigma_b = 1
+sigma_p = 1
 BETA = 0.5
-mu_0 = np.array([-500,400,20])
+mu_0 = np.array([0,0,0])
 DIM = 3
 V_0 = np.array([[50**2,0,0],[0,40**2,0],[0,0,2**2]])
 F = np.array([[1,0,0],[dt, 1, 0],[dt**2/2,dt,1]])
@@ -108,7 +108,7 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R):
     # use recursions to calculate other values
     for j in range(N-2, -1, -1):
         C[j] = Vs[j].dot(F.T.dot(np.linalg.inv(Ps[j])))
-        mu_hats[j] = mus[j] + C[j].dot(mu_hats[j+1] - F.dot(mus[j]-gammas[j+1]))
+        mu_hats[j] = mus[j] + C[j].dot(mu_hats[j+1] - F.dot(mus[j])-gammas[j+1])
         V_hats[j] = Vs[j] + C[j].dot((V_hats[j+1]-Ps[j]).dot(C[j].T))
     return mus, Vs, mu_hats, V_hats
 
