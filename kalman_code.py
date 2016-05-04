@@ -4,8 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
 import scipy.constants as Constants
-import csv
-import collections
 #%matplotlib inline
 
 
@@ -44,7 +42,7 @@ BETA = 0.5
 mu_0 = np.array([-500,400,20])
 DIM = 3
 V_0 = np.array([[50**2,0,0],[0,40**2,0],[0,0,2**2]])
-F = np.array([[1,0,0],[dt, 1, 0],[0,dt,1]])
+F = np.array([[1,0,0],[dt, 1, 0],[dt**2/2,dt,1]])
 H = np.array([[BETA,0,0],[1,0,0],[0,0,1]])
 Q = np.array([[100*dt,0,0],[0,dt,0],[0,0,dt]])
 R = np.array([[sigma_a**2,0,0],[sigma_b**2,0,0],[0,0,sigma_p**2]])
@@ -133,6 +131,14 @@ plt.ylabel('Predictions')
 legend = ax.legend(loc='upper left',shadow=True)
 
 
+#calculate MSE
+def MSE(est_x,true_x):
+    return (sum((est_x - true_x)**2))/len(est_x)
 
-   
-     
+def calcMSE(prediction,true_x):
+    result = []
+    for i in range(0,len(meanPred[0,:])):
+        result.append(MSE(prediction[:,i],true_x[:,i]))
+    return result
+
+print calcMSE(meanPred,true_x)
