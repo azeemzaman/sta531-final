@@ -22,7 +22,7 @@ true_x = np.asarray(true_x)
   
 #Predict acceleration
 def calcAcceleration(thrust,mass):
-    return thrust/mass - ACCELERATION  
+	return 1000*thrust/mass - ACCELERATION  
 predicted_accel = calcAcceleration(flight_data[:,5],flight_data[:,4])
 
 
