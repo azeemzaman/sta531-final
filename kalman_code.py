@@ -1,10 +1,10 @@
 import numpy as np
-#from numba import jit
+from numba import jit
 import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
 import scipy.constants as Constants
-#%matplotlib inline
+%matplotlib inline
 
 
 #load data
