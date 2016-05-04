@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit
+#from numba import jit
 import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
@@ -7,6 +7,7 @@ import scipy.constants as Constants
 import csv
 import collections
 #%matplotlib inline
+
 
 #load data
 def readCSV(FILE_URL,**kwargs):
@@ -16,7 +17,11 @@ ACCELERATION = Constants.g
 NOISE_SD = 1
 flight_data = readCSV('flight_data.csv',delimiter=',')
 measured_data = readCSV('measured_data.csv',delimiter=',')
-
+true_x = [None] * len(flight_data)
+for i in range(0,len(flight_data)):
+    true_x[i] = np.array([flight_data[i][3],flight_data[i][2],flight_data[i][1]])
+true_x = np.asarray(true_x) 
+  
 #Predict acceleration
 def calcAcceleration(thrust,mass):
     return thrust/mass - ACCELERATION  
@@ -47,7 +52,6 @@ R = np.array([[sigma_a**2,0,0],[sigma_b**2,0,0],[0,0,sigma_p**2]])
 xs = [None] * len(flight_data)
 for i in range(0,len(flight_data)):
     xs[i] = np.array([predicted_accel[i],estimated_accel[i],measured_alt[i]])
-
 xs = np.asarray(xs)
 
 
@@ -116,5 +120,19 @@ result = filter_smoother(xs, mu_0, V_0, F, Q, H, R)
 
 meanPred = np.asarray(result[2])
 
-np.savetxt("out.csv", meanPred, '%5.4f',delimiter=",")
- 
+#np.savetxt("out.csv", meanPred, '%5.4f',delimiter=",")
+
+
+#plot
+fig,ax = plt.subplots()
+ax.plot(meanPred[:,0],'r--',label='Acceleration')
+ax.plot(meanPred[:,1],'g--',label='Velocity')
+ax.plot(meanPred[:,2],'b--',label='Altitude')
+plt.xlabel('time /s')
+plt.ylabel('Predictions')
+legend = ax.legend(loc='upper left',shadow=True)
+
+
+
+   
+     
