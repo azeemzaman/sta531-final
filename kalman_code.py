@@ -21,11 +21,11 @@ true_x = np.asarray(true_x)
   
 #Predict acceleration
 def calcAcceleration(thrust,mass):
-	pred_accel = 1000*thrust/mass - ACCELERATION
-	for i in range(len(pred_accel)):
-		if pred_accel[i] == - ACCELERATION:
-			pred_accel[i] == 0
-	return pred_accel
+    pred_accel = 1000*thrust/mass - ACCELERATION
+    for i in range(len(pred_accel)):
+        if pred_accel[i] == - ACCELERATION:
+            pred_accel[i] == 0
+    return pred_accel
 predicted_accel = calcAcceleration(flight_data[:,5],flight_data[:,4])
 
 #add noise
@@ -35,26 +35,7 @@ def addNoise(measurements,sd):
 estimated_accel = addNoise(flight_data[:,3],NOISE_SD)
 measured_alt = addNoise(flight_data[:,1],NOISE_SD)
 
-# set initial values
-dt = 0.01
-sigma_a = 2
-sigma_b = 1
-sigma_p = 1
-BETA = 1.2
-mu_0 = np.array([0,0,-8])
-DIM = 3
-V_0 = np.array([[50**2,0,0],[0,40**2,0],[0,0,2**2]])
-F = np.array([[1,0,0],[dt, 1, 0],[dt**2/2,dt,1]])
-H = np.array([[BETA,0,0],[1,0,0],[0,0,1]])
-Q = np.array([[100*dt,0,0],[0,dt,0],[0,0,dt]])
-R = np.array([[sigma_a**2,0,0],[sigma_b**2,0,0],[0,0,sigma_p**2]])
 
-xs = [None] * len(flight_data)
-for i in range(0,len(flight_data)):
-    xs[i] = np.array([predicted_accel[i],estimated_accel[i],measured_alt[i]])
-xs = np.asarray(xs)
-
-times = flight_data[:,0]
 
 #@jit
 def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
@@ -73,7 +54,7 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
         Vs:  the covaraince matrices of p(z_j|x_1:j)
         mu_hats: the mean of p(z_j|x_1:n)
         V_hats: the covariance matrices of p(z_j|x_1:n)
-	"""
+    """
     # get sizes
     N = len(xs)
     size = H.shape[1]
@@ -93,7 +74,7 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
     for j in range(1,N-1):
         gammas[j] = np.array([predicted_accel[j+1]-predicted_accel[j],0,0])
     gammas[N-1] = gammas[N-2]
-	# calculate dt
+    # calculate dt
     diff_times[0] = 0
     for j in range(1, N-1):
         diff_times[j] = times[j+1] - times[j]
@@ -130,9 +111,28 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
         V_hats[j] = Vs[j] + C[j].dot((V_hats[j+1]-Ps[j]).dot(C[j].T))
     return mus, Vs, mu_hats, V_hats
 
+# set initial values
+dt = 0.01
+mu_0 = np.array([0,0,-8])
+DIM = 3
 
 
-result = filter_smoother(xs, mu_0, V_0, F, Q, H, R, times)
+xs = [None] * len(flight_data)
+for i in range(0,len(flight_data)):
+    xs[i] = np.array([predicted_accel[i],estimated_accel[i],measured_alt[i]])
+xs = np.asarray(xs)
+
+times = flight_data[:,0]
+
+def paramTuning(BETA = 1, sigma_a = 2, sigma_b = 1, sigma_p = 1):
+    V_0 = np.array([[50**2,0,0],[0,40**2,0],[0,0,2**2]])
+    F = np.array([[1,0,0],[dt, 1, 0],[dt**2/2,dt,1]])
+    H = np.array([[BETA,0,0],[1,0,0],[0,0,1]])
+    Q = np.array([[100*dt,0,0],[0,dt,0],[0,0,dt]])
+    R = np.array([[sigma_a**2,0,0],[sigma_b**2,0,0],[0,0,sigma_p**2]])
+    return filter_smoother(xs, mu_0, V_0, F, Q, H, R, times)
+
+result = paramTuning()
 
 meanPred = np.asarray(result[2])
 
@@ -160,3 +160,22 @@ def calcMSE(prediction,true_x):
     return result
 
 print calcMSE(meanPred,true_x)
+
+
+BETAList = np.arange(0, 2, 0.1)
+N = len(BETAList)
+MSEAcc = [None] * N
+MSEVel = [None] * N
+MSEAlt = [None] * N
+MSEMatrix = []
+for j in range(N):
+    myResult = paramTuning(BETA = BETAList[j])
+    meanPred = np.asarray(myResult[2])
+    MSEMatrix.append(calcMSE(meanPred,true_x))
+    MSEAcc[j], MSEVel[j], MSEAlt[j] = calcMSE(meanPred,true_x)
+MSEMatrix = np.asarray(MSEMatrix)    
+
+ 
+print min((val, BETAList[idx]) for (idx, val) in enumerate(MSEAcc))
+print min((val, BETAList[idx]) for (idx, val) in enumerate(MSEVel))
+print min((val, BETAList[idx]) for (idx, val) in enumerate(MSEAlt))
