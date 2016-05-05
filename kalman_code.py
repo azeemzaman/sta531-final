@@ -4,7 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
 import scipy.constants as Constants
-%matplotlib inline
 
 
 #load data
@@ -84,7 +83,7 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
     Vs = [None] * N
     Ps = [None] * N
     gammas = [None] * N
-	diff_times = [None] * N
+    diff_times = [None] * N
     # compute initial values
     Ks[0] = V_0.dot(H.T.dot(np.linalg.inv(H.dot(V_0.dot(H.T)) + R)))
     mus[0] = mu_0 + Ks[0].dot((xs[0] - H.dot(mu_0)))
@@ -95,17 +94,17 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
         gammas[j] = np.array([predicted_accel[j+1]-predicted_accel[j],0,0])
     gammas[N-1] = gammas[N-2]
 	# calculate dt
-	diff_times[0] = 0
-	for j in range(1, N-1):
-		diff_times[j] = times[j+1] - times[j]
-	diff_times[N-1] = diff_times[N-2]
+    diff_times[0] = 0
+    for j in range(1, N-1):
+        diff_times[j] = times[j+1] - times[j]
+    diff_times[N-1] = diff_times[N-2]
     # use recursions to calculate rest of values
     for j in range(1,N):
-		# update matrices
-		dt = diff_times[j]
-		F = np.array([[1,0,0],[dt, 1, 0], [0, dt, 1]])
-		Q = np.array([[100*dt, 0, 0],[0, dt, 0], [0, 0, dt]])
-		# compute recursions
+        # update matrices
+        dt = diff_times[j]
+        F = np.array([[1,0,0],[dt, 1, 0], [0, dt, 1]])
+        Q = np.array([[100*dt, 0, 0],[0, dt, 0], [0, 0, dt]])
+        # compute recursions
         Ks[j] = Ps[j-1].dot(H.T.dot(np.linalg.inv(H.dot(Ps[j-1].dot(H.T)) + R)))
         mus[j] = F.dot(mus[j-1]) + gammas[j] + Ks[j].dot(xs[j] - H.dot(F.dot(mus[j-1])+gammas[j]))
         Vs[j] = (np.eye(size) - Ks[j].dot(H)).dot(Ps[j-1])
@@ -121,11 +120,11 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
     V_hats[N-1] = Vs[N-1]
     # use recursions to calculate other values
     for j in range(N-2, -1, -1):
-		# update matrices
-		dt = diff_times[j]
-		F = np.array([[1,0,0],[dt, 1, 0], [0, dt, 1]])
-		Q = np.array([[100*dt, 0, 0],[0, dt, 0], [0, 0, dt]])
-		# compute recursions
+        # update matrices
+        dt = diff_times[j]
+        F = np.array([[1,0,0],[dt, 1, 0], [0, dt, 1]])
+        Q = np.array([[100*dt, 0, 0],[0, dt, 0], [0, 0, dt]])
+        # compute recursions
         C[j] = Vs[j].dot(F.T.dot(np.linalg.inv(Ps[j])))
         mu_hats[j] = mus[j] + C[j].dot(mu_hats[j+1] - F.dot(mus[j])-gammas[j+1])
         V_hats[j] = Vs[j] + C[j].dot((V_hats[j+1]-Ps[j]).dot(C[j].T))
