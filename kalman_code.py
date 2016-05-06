@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit
+#from numba import jit
 import pandas as pd
 import matplotlib.pyplot as plt
 from numpy import genfromtxt
@@ -32,8 +32,7 @@ predicted_accel = calcAcceleration(flight_data[:,5],flight_data[:,4])
 def addNoise(measurements,sd):
     noise = np.random.normal(0,sd,len(measurements))
     return measurements + noise
-estimated_accel = addNoise(flight_data[:,3],NOISE_SD)
-measured_alt = addNoise(flight_data[:,1],NOISE_SD)
+
 
 # set initial values
 dt = 0.01
@@ -49,15 +48,11 @@ H = np.array([[BETA,0,0],[1,0,0],[0,0,1]])
 Q = np.array([[100*dt,0,0],[0,dt,0],[0,0,dt]])
 R = np.array([[sigma_a**2,0,0],[sigma_b**2,0,0],[0,0,sigma_p**2]])
 
-xs = [None] * len(flight_data)
-for i in range(0,len(flight_data)):
-    xs[i] = np.array([predicted_accel[i],estimated_accel[i],measured_alt[i]])
-xs = np.asarray(xs)
 
 times = flight_data[:,0]
 
 #@jit
-def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
+def filter_smoother(mu_0, V_0, F, Q, H, R, times,NOISE_SD):
     """
     The function implements the Kalman filter and smoother.
     Args:
@@ -74,6 +69,13 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
         mu_hats: the mean of p(z_j|x_1:n)
         V_hats: the covariance matrices of p(z_j|x_1:n)
 	"""
+    estimated_accel = addNoise(flight_data[:,3],NOISE_SD)
+    measured_alt = addNoise(flight_data[:,1],NOISE_SD)
+    xs = [None] * len(flight_data)
+    for i in range(0,len(flight_data)):
+        xs[i] = np.array([predicted_accel[i],estimated_accel[i],measured_alt[i]])
+    xs = np.asarray(xs)
+
     # get sizes
     N = len(xs)
     size = H.shape[1]
@@ -132,21 +134,26 @@ def filter_smoother(xs, mu_0, V_0, F, Q, H, R, times):
 
 
 
-result = filter_smoother(xs, mu_0, V_0, F, Q, H, R, times)
+result = filter_smoother(mu_0, V_0, F, Q, H, R, times,50)
 
 meanPred = np.asarray(result[2])
 
 #np.savetxt("out.csv", meanPred, '%5.4f',delimiter=",")
 
 
-#plot
+    
 fig,ax = plt.subplots()
 ax.plot(meanPred[:,0],'r--',label='Acceleration')
+ax.plot(true_x[:,0],'r')
 ax.plot(meanPred[:,1],'g--',label='Velocity')
+ax.plot(true_x[:,1],'g')
 ax.plot(meanPred[:,2],'b--',label='Altitude')
+ax.plot(true_x[:,2],'b')
 plt.xlabel('time /s')
 plt.ylabel('Predictions')
+plt.title('Variance = 50')
 legend = ax.legend(loc='upper left',shadow=True)
+plt.show()
 
 
 #calculate MSE
@@ -158,5 +165,31 @@ def calcMSE(prediction,true_x):
     for i in range(0,len(meanPred[0,:])):
         result.append(MSE(prediction[:,i],true_x[:,i]))
     return result
+    
+noise_accel = []
+noise_velocity = []
+noise_alt = []
+for NOISE_SD in np.linspace(1,10,100):
+    accel_sample = []
+    vel_sample = []
+    alt_sample = []
+    for iter in range(0,10):
+        result = filter_smoother(mu_0,V_0,F,Q,H,R,times,NOISE_SD)
+        meanPred = np.asarray(result[2])
+        accel_sample.append(calcMSE(meanPred,true_x)[0])
+        vel_sample.append(calcMSE(meanPred,true_x)[1])
+        alt_sample.append(calcMSE(meanPred,true_x)[1])
+    noise_accel.append(np.mean(accel_sample))
+    noise_velocity.append(np.mean(vel_sample))
+    noise_alt.append(np.mean(alt_sample))
+        
 
-print calcMSE(meanPred,true_x)
+fig,ax = plt.subplots()
+#ax.plot(np.linspace(1,10,100),noise_accel,'r--',label='Acceleration')
+#ax.plot(np.linspace(1,10,100),noise_velocity,'g--',label='Velocity')
+ax.plot(np.linspace(1,10,100),noise_alt,'b--',label='Altitude')
+plt.xlabel('Noise Variance')
+plt.ylabel('MSE')
+plt.title('Mean Square Error vs. Noise Variance')
+legend = ax.legend(loc='upper left',shadow=True)
+plt.show()
